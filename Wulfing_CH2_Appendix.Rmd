@@ -1,0 +1,195 @@
+---
+graphics: yes
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: no
+    keep_tex: true
+  pdf_document:
+    toc: no
+    keep_tex: true
+  bookdown::html_document2:
+    fig_caption: yes
+    toc: no
+  word_document: default
+bibliography:
+- Ch2_citations.bib
+- R_Citations.bib
+header-includes: \usepackage{setspace}\doublespacing \usepackage{lineno} \usepackage{placeins}
+---
+
+\begin{center}
+Supplementary Material for:
+	
+\textbf{\Large Social-ecological models with social hierarchy and spatial structure applied to small scale fisheries}
+	
+\textsc{Sophie Wulfing$^{1*}$ and Easton R. White$^{1}$\\}
+\vspace{3 mm}
+\normalsize{\indent $^1$Department of Biological Sciences, University of New Hampshire, 03824, NH, USA\\}
+$\text{*}$ Corresponding authors: Sophie Wulfing (SophieWulfing@gmail.com) and Dr. Easton White (Easton.White@unh.edu)
+\end{center}
+
+\pagebreak
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, dev="cairo_pdf", cache = TRUE)
+
+library(deSolve)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(kableExtra)
+library(FME)
+library(ggpubr)
+library(gridtext)
+
+
+#setwd("C:/Users/sophi/Documents/GitHub/UNH_Docs/Proposal/Soc_Ecol_Model")
+
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+\linenumbers
+
+Equations 2), 4), and 5) are as follows:
+
+\begin{equation}
+\tag{2}
+\frac{dX_i}{dt} = k_iX_i(1-X_i)[U_{A,i} - U_{B,i}]
+\end{equation}
+
+\begin{equation}
+\tag{4}
+U_{A,i} = \frac{1}{(F_i + c_i)} + d_iX_i + \rho_i X_j
+\end{equation}
+
+\begin{equation}
+\tag{5}
+U_{B,i} = \omega_i + d_i(1-X_i) + \rho_i(1-X_j)
+\end{equation}
+
+Substituting equations 4) and 5) into equation 2 Gives:
+
+$\frac{dX_i}{dt} = k_iX_i(1-X_i)[\frac{1}{(F_i + c_i)} + d_iX_i + \rho_i X_j - \omega_i - d_i(1-X_i) - \rho_i(1-X_j)]$
+
+$\frac{dX_i}{dt} = k_iX_i(1-X_i)[\frac{1}{(F_i + c_i)} - \omega_i + d_i(X_i-1+X_i) + \rho_i(X_j-1+X_j)]$
+
+$\frac{dX_i}{dt} =  k_iX_i(1-X_i) [\frac{1}{F_i+c_i} - \omega_i + d_i(2X_i - 1) + \rho_i(2X_j - 1)]$
+
+<!-- # Inside vs. Outside social influence with symmetry -->
+```{r modelSetup}
+params_list <- data.frame(r_1 = 0.16, s_1 = 0.8, h_1 = .25, k_1 = 0.17, w_1 = 1.44, c_1 = 0.5, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+                          r_2 = 0.16, s_2 = 0.8, h_2 = .25, k_2 = 0.17, w_2 = 1.44, c_2 = 0.5, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+
+xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+timespan <- seq(from = 0, to = 1000, by = 1)
+
+
+Bauch.Coupled <- function (t, y, params) {
+  ## first extract the state variables
+  F_1 <- y[1] #Fish Pop var
+  F_2 <- y[2] #Fish Pop var
+  X_1 <- y[3] #conservationist var
+  X_2 <- y[4] #conservationist var
+
+  #TT <- y[5]
+  
+  ## now extract the parameters
+  r_1 <- params["r_1"] # Net growth/fecundity
+  s_1 <- params["s_1"] # supply and demand
+  h_1 <- params["h_1"] # Harvesting efficiency
+  k_1 <- params["k_1"] # Social learning rate
+  w_1 <- params["w_1"] # conservation costs
+  c_1 <- params["c_1"] # rarity valuation param
+  d_1 <- params["d_1"] # social norm strength
+  m_1 <- params["m_1"] # Inflow of fish from pop 2 to pop 1
+  rho_1 <- params["rho_1"] # Influence of pop 2 on pop 1
+  
+  r_2 <- params["r_2"] # Net growth/fecundity
+  s_2 <- params["s_2"] # supply and demand
+  h_2 <- params["h_2"] # Harvesting efficiency
+  k_2 <- params["k_2"] # Social learning rate
+  w_2 <- params["w_2"] # conservation costs
+  c_2 <- params["c_2"] # rarity valuation param
+  d_2 <- params["d_2"] # social norm strength 
+  m_2 <- params["m_2"] # Inflow of fish from pop 1 to pop 2
+  rho_2 <- params["rho_2"] # Influence of pop 1 on pop 2
+  
+  ## now code the model equations
+  dF_1dt <-  r_1 * F_1 * (1-F_1) - (h_1 * F_1 * (1-X_1))/(F_1+s_1) - m_2 * F_1 + m_1 * F_2
+  dF_2dt <-  r_2 * F_2 * (1-F_2) - (h_2 * F_2 * (1-X_2))/(F_2+s_2) - m_1 * F_2 + m_2 * F_1
+  
+  dX_1dt <- k_1 * X_1 * (1-X_1) *(1/(F_1 + c_1) - w_1 + d_1*(2*X_1 - 1) + rho_1 * (2*X_2 - 1))
+  dX_2dt <- k_2 * X_2 * (1-X_2) *(1/(F_2 + c_2) - w_2 + d_2*(2*X_2 - 1) + rho_2 * (2*X_1 - 1))
+  
+  ## combine results into a single vector
+  dydt <- c(dF_1dt, dF_2dt, dX_1dt, dX_2dt)
+  ## return result as a list!
+  
+  list(dydt)
+}
+
+params_Bauch2 <- params_list
+
+times <- timespan
+xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+ode(
+  func=Bauch.Coupled,
+  y=xstart,
+  times=times,
+  parms=params_Bauch2
+) %>%
+  as.data.frame() -> out_Coupled
+```
+
+```{r influenceBoth, warning = FALSE, fig.cap = "With symmetry conditions, $d$ and $\rho$ have the same effect", eval = FALSE}
+
+timespan <- seq(from = 0, to = 1000, by = 1)
+
+rhoparams <- c(0.01, 0.05, 0.1, 0.5)
+dparams <- c(0.01, 0.05, 0.1, 0.5)
+plotList <- list()
+k <- 0
+
+for(i in 1:length(dparams)){
+  params_Default <- params_list
+  params_Default[7] <- dparams[i]
+  params_Default[16] <- dparams[i]
+  
+  for(j in 1:length(rhoparams)){
+    k <- k+1
+    params_Default[9] <- rhoparams[j]
+    params_Default[18] <- rhoparams[j]
+  
+   times <- timespan
+    xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+    ode(
+      func=Bauch.Coupled,
+      y=xstart,
+      times=times,
+      parms=params_Default
+    ) %>%
+      as.data.frame() -> out_Diff
+
+    p <- out_Diff %>%
+      gather(variable,value,-time) %>%
+      ggplot(aes(x=time,y=value,color=variable))+
+      geom_line(size=1)+
+      theme_classic()+
+      labs(x='time (yr)',y='pop') +
+      theme(legend.position = "none") +
+      ggtitle(paste("d = ", params_Default[7], "rho = ", params_Default[9])) +
+      theme(plot.title = element_text(size=7))
+    plotList[[k]] <- p
+  }
+}
+
+  
+  do.call("grid.arrange", c(plotList, ncol=4))
+
+```

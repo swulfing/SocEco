@@ -1,0 +1,1046 @@
+---
+graphics: yes
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: no
+    lof: yes
+    lot: yes
+    keep_tex: yes
+  pdf_document:
+    toc: no
+    keep_tex: true
+  bookdown::html_document2:
+    fig_caption: yes
+    toc: no
+  word_document: default
+geometry: margin=1in
+fontsize: 12pt
+bibliography:
+- Thesis_Citations.bib
+- R_Citations.bib
+csl: apa_1.csl
+header-includes: \usepackage{setspace} \usepackage{lineno} \usepackage{placeins} \usepackage[nottoc,notlof,notlot]{tocbibind} \renewcommand{\contentsname}{} \renewcommand{\listfigurename}{} \renewcommand{\listtablename}{} \usepackage{sectsty} \sectionfont{\centering}
+---
+
+\doublespacing
+
+\begin{center}
+	
+\textbf{\Large Social-ecological models with social hierarchy and spatial structure applied to small scale fisheries}
+	
+\textsc{Sophie Wulfing$^{1*}$ and Easton R. White$^{1}$\\}
+\vspace{3 mm}
+\normalsize{\indent $^1$Department of Biological Sciences, University of New Hampshire, 03824, NH, USA\\}
+$\text{*}$ Corresponding authors: Sophie Wulfing (SophieWulfing@gmail.com) and Dr. Easton White (Easton.White@unh.edu)
+\end{center}
+
+\newpage
+
+\linenumbers
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, dev="cairo_pdf", cache = TRUE)
+
+library(deSolve)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+#library(kableExtra)
+library(FME)
+library(ggpubr)
+library(gridtext)
+
+#setwd("C:/Users/sophi/Documents/GitHub/UNH_Docs/Proposal/Soc_Ecol_Model")
+
+
+#Nest try h = .25
+params_list <- data.frame(r_1 = 0.16, s_1 = 0.8, h_1 = .25, k_1 = 0.17, w_1 = 1.44, c_1 = 0.5, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+                          r_2 = 0.16, s_2 = 0.8, h_2 = .25, k_2 = 0.17, w_2 = 1.44, c_2 = 0.5, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+
+cbbPalette <- c("#E69F00", "#009E73", "#567de9", "#D55E00") #F_1, F_2, X_1, X_2
+
+# #WORKED - MINIMUM GROWTH RATE USED IN THAMPI
+# params_list <- data.frame(r_1 = 0.16, s_1 = 0.8, h_1 = 0.5, k_1 = 0.17, w_1 = 1.44, c_1 = 0.6, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+#                           r_2 = 0.16, s_2 = 0.8, h_2 = 0.5, k_2 = 0.17, w_2 = 1.44, c_2 = 0.6, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+
+#Extensions of Bauch Default but with my params I want changed. Goal: get this to oscillate
+# params_list <- data.frame(r_1 = 0.35, s_1 = 0.8, h_1 = 0.5, k_1 = 0.17, w_1 = 1, c_1 = 1.68, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+#                           r_2 = 0.35, s_2 = 0.8, h_2 = 0.5, k_2 = 0.17, w_2 = 1, c_2 = 1.68, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+
+
+#Extension of Bauch Default
+# params_list <- data.frame(r_1 = 0.06, s_1 = 0.8, h_1 = 0.1, k_1 = 0.17, w_1 = 1, c_1 = 0.6, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+#                           r_2 = 0.06, s_2 = 0.8, h_2 = 0.1, k_2 = 0.17, w_2 = 1, c_2 = 0.6, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+
+
+xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+timespan <- seq(from = 0, to = 1000, by = 1)
+
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+# ABSTRACT
+
+Socio-ecological models combine ecological systems with human social dynamics in order to better understand human interactions with the environment. To model human behavior, replicator dynamics can be used to model how societal influence and financial costs can change opinions about resource extraction. Previous research on replicator dynamics has shown how evolving opinions on conservation can change how humans interact with their environment and therefore change population dynamics of the harvested species. However, social-ecological models often assume that human societies are homogeneous with no social structure. Building on previous work on social-ecological models, we develop a two-patch socio-ecological model with social hierarchy in order to study the interactions between spatial dynamics an social inequity. We found that fish movement between patches is a major driver of model dynamics, especially when the two patches exhibit different social equality and fishing practices. Further, we found that the societal influence between groups of harvesters was essential to ensuring stable fishery dynamics. Next, we developed a case-study of a co-managed fishery where one group fishes sustainably while another was over-harvests, resulting in a fishery collapse of both patches. We also found that because social influence only included number of fishers and not effective strategies, increased social pressure actually decreased the sustainability of the fishery. The findings of this study indicate the importance of including spatial components to socio-ecological models and highlights the importance of understanding species movements when making conservation decisions. Further, we demonstrate how incorporating fishing methods from outside sources can result in higher stability of the harvested population, indicating a need for diversified information when managing resources.
+
+Keywords: two-patch model, replicator dynamics, social hierarchy, socio-ecological model, species movement
+
+# INTRODUCTION
+
+Social ecological models treat human behavior as a variable as opposed to a set parameter. Allowing human heavier to be dynamic allows for the study of how human decision making can change in response to environmental factors and, in turn, alter how humans interact with resources and profits [@bauchImitationDynamicsPredict2005; @ostromGeneralFrameworkAnalyzing2009; @innesImpactHumanenvironmentInteractions2013a; @orabyInfluenceSocialNorms2014; @bauchEarlyWarningSignals2016; @sigdelCompetitionInjunctiveSocial2017a; @thampiSocioecologicalDynamicsCaribbean2018]. As human societies grow increasingly intricate and interconnected, these models can help us to analyze how our social structures can influence the environment around us [@liuCoupledHumanNatural2007]. Social ecological modeling provides important insight not only into how human decision making can influence ecological patterns but can also show hidden processes, reveal regime shifts that would otherwise be hidden, and identify vulnerabilities of systems that do not exist within the purely social or ecological models [@liuCoupledHumanNatural2007; @youngSolvingCrisisOcean2007; @ostromGeneralFrameworkAnalyzing2009; @ladeRegimeShiftsSocialecological2013]. Socio-ecological models can also be used in systems where data are difficult to collect, as parameters can be changed in order to analyze different hypothetical scenarios. Conservation plans often do not reach their conservation goals, and these setbacks are often attributed to a lack of stakeholder participation [@cronaWhatYouKnow2006; @salasViabilitySustainabilitySmallScale2019; @princeSpawningPotentialSurveys2021]. Socio-ecological models can identify where areas of potential conflict can arise, compromises that can be made in the system, and alternative conservation practices that encourages participation from all stakeholder groups [@banSocialEcologicalApproach2013]. Further, as social-ecological models are simulations of human and environmental interactions, they allow flexibility and can be adapted to fit the specific system of study and improve place-based management practices [@youngSolvingCrisisOcean2007; @liuCoupledHumanNatural2007; @felipe-luciaConceptualizingEcosystemServices2022]
+
+Due to their adaptability, socio-ecological models can use a wide range of strategies to represent human decision making. One such method is replicator dynamics, which model human decision making where an individual makes conservation choices based on weighing the perceived benefits of conservation with the costs, as well as the social pressure to conform to the group's stance on conservation [@bauchImitationDynamicsPredict2005]. Individuals will therefore "replicate" the behavior of their peers by changing their harvest practices based on the opinion of the majority [@bauchEvolutionaryGameTheory2012]. Models that employ replicator dynamics have been used to show how this social learning is a key component to vaccination uptake in public health, and preexisting social norms can actually suppress vaccine uptake despite frequent disease outbreaks [@bauchEvolutionaryGameTheory2012; @orabyInfluenceSocialNorms2014]. Replicator dynamics can also have conservation applications as pest invasion models have shown ways to simultaneously mitigate pest outbreaks and the cost to address them in the timber industry [@barlowModellingInteractionsForest2014]. Further, land use changes have been modeled to have completely different dynamics when human decision making was added to replicator dynamic models [@innesImpactHumanenvironmentInteractions2013a]. However, past work on human behavior has generally assumed that human societies are homogeneous, and all people are subject to the same social influence and ecological dynamics.
+
+Instituting effective conservation strategies can be especially difficult if the organism being protected has a migratory pattern that crosses over multiple management jurisdictions such as country borders [@ogburnAddressingChallengesApplication2017; @garrone-netoUsingSameFish2018; @ramirez-valdezAsymmetryInternationalBorders2021]. Borders can also create challenges when gathering population data that require extensive fieldwork [@cozziAfricanWildDog2020; @hebblewhiteWolvesBordersTransboundary2020]. The fragmentation of management can also result in a mismatch of conservation strategies that become ineffective when the distinct management bodies do not coordinate efforts [@siddonsBordersBarriersChallenges2017]. Research on the importance of coordinated research efforts has been conducted on many terrestrial species with large migratory ranges and have consistently shown that cooperation among government bodies is essential to protecting the health of highly migratory species or species whose native ranges expand across multiple countries [@plumptreTransboundaryConservationGreater2007; @gervasiCompensatoryImmigrationCounteracts2015; @meisingsetSpatialMismatchManagement2018]. Because fish are generally migratory, management coorporation is especially relevant in international waters or waters where different government bodies share jurisdiction [@mchichDynamicsFishStock2000]. Previous research on two-patch fishing models has shown that movement rates between patches can affect population stability when there are different fishing pressures in each patch [@mchichDynamicsFishStock2000; @caiModelingAnalysisHarvesting2008]. Economic output can also be maximized in multi-patch fishing models as high dispersal can result in a higher overall yield of the system than the yield of each patch combined [@augerIncreaseMaximumSustainable2022]. High dispersal across patches is commonly found to be an essential component to maximizing population health and economic gain from fishing [@freedmanMathematicalModelsPopulation1977; @moellerEconomicallyOptimalMarine2015; @augerIncreaseMaximumSustainable2022]. Two-patch models help us to understand the population dynamics of fish species better who face different pressures in each patch and have even resolved conflicts between fishing groups [@mchichDynamicsFishStock2000].
+
+Contrary to the assumption made by previous models that human groups are homogeneous, the vast majority of real-world societies exhibit some form of hierarchy or inequality. Societies with different social subgroups can often exhibit an “us vs. them” mentality and compete for resources [@borgattiNetworkParadigmOrganizational2003]. People's relationship with the environment has been shown to be influenced by many factors such as social status, wealth, gender, education, and even notions of self-importance [@baker-medardClassedConservationSocioeconomic2021]. Competition over resources has been shown to be exacerbated by social hierarchies and ‘top-down’ regulation whereas when social connectivity is considered in management plans, management outcomes are not only improved, but costs are reduced as well [@krackhardtInformalNetworksOrganizational1988; @graftonSocialCapitalFisheries2005; @bodinRoleSocialNetworks2009]. Further, members of social networks have been shown to have varying levels of connectivity with others in their groups based on attributes such as ethnicity, which can in turn alter an individual’s relationship with the environment and their views on conservation [@barnes-mautheTotalEconomicValue2013; @sariMonitoringSmallscaleFisheries2021]. @barnes-mautheTotalEconomicValue2013 showed that fishing communities can exhibit homophily, which is the tendency for people to obtain information and opinions from those who are similar to themselves before seeking views from those who are perceived as different. Therefore, people in different social groups may be receiving different information and opinions about conservation and acting accordingly [@mcphersonBirdsFeatherHomophily2001]. For example, in Kenya, communication among fishers has been shown to stay within groups using the same gear type which has inhibited successful regulation of the whole fishery [@cronaWhatYouKnow2006]. Further, in the southwest Madagascar octopus fishery, fishing method and location typically falls along gendered lines. When fishing restrictions were imposed on tidal flats, women's access to octopus harvest was restricted, while men, who typically fished in deeper waters, were able to maintain their livelihood [@baker-medardGenderingMarineConservation2017]. In Thailand, ethnicity has been shown to be a source of fishing conflict which has exacerbated resource depletion [@pomeroyFishWarsConflict2007]. The existence of social structures is extremely prevalent in human societies which can affect how people interact with the environment. However, there is little existing research that uses replicator dynamics study to study how social hierarchies alter harvest practices.
+
+Small-scale fisheries are a particularly relevant system to apply replicator dynamics as fishing practices and policies are often made by communal decision makers. Research on small-scale fisheries is a growing and essential field as they are drastically understudied yet affect many people around the globe [@theworldbankHIDDENHARVESTTheGlobal2012]. Due to tight social structures, community decision making and strong reliance on the environment, small-scale fisheries are systems that are well represented by socio-ecological models and replicator dynamics [@graftonSocialCapitalFisheries2005; @thampiSocioecologicalDynamicsCaribbean2018; @barnesSocialecologicalAlignmentEcological2019]. Governmental bodies or third parties instituting conservation efforts in small-scale fisheries have often been unsuccessful, especially when the social and economic components of the industry have been ignored [@salasViabilitySustainabilitySmallScale2019; @princeSpawningPotentialSurveys2021]. However, even when human interactions and decision making have been considered, socio-ecological models have often treated individuals in human societies equal in their social standing. As human societies are often complex and hierarchical, the simplistic assumption that everyone interacts with the environment and within their community equally can lead to lack of participation in conservation by some groups within a community [@barnes-mautheTotalEconomicValue2013; @cummingNewDirectionsUnderstanding2017]. Mismanagement of fisheries have even been shown to exacerbate these social inequalities [@cinnerComanagementCoralReef2012; @baker-medardGenderingMarineConservation2017]. Further, the specific dynamics of the fishery in question have been shown to be important components to models, as models with multiple patches can actually mitigate over-fishing if there is high movement of the harvested species between patches [@cressmanIdealFreeDistributions2004].  No previous research has combined two-patch fishing models with a hierarchical human decision making model in order to study how space and social dynamics affect fishery dynamics.
+
+In this study, we couple a human-decision replicator dynamics model with social hierarchies with a two-patch resource model in order to understand how decision making is affected by spatial and hierarchical factors. The objectives of this study were: 1) to compare the output of previous replicator dynamics studies with the new two-patch model to understand the affect of species movement on harvesting decisions, 2) understand the effect of social hierarchy and communication across groups on the dynamics of this model, 3) use a co-managed small-scale fishery as a case study to understand how fishery dynamics are driven when one group fishes sustainably while the other over-harvests. We hypothesized that higher cooperation between groups would benefit fish stocks overall and that increased fish movement would increase the health of fish populations.
+
+# METHODS
+
+```{r Conceptual, echo = FALSE, results = "asis", fig.cap = '(ref:conceptual) \\label{Conceptual}', out.width = "100%"}
+
+knitr::include_graphics("CoupledModelConceptual.png")
+
+```
+
+(ref:conceptual) A conceptual representation of our model as a two-patch extension of @bauchEarlyWarningSignals2016. Here, each fish population ($F_i$) in each patch $i$ increase through natural growth and movement of fish into the patch. Fish populations are decreased through emigration out of the patch and fishing mortality. The number of fishers ($X_i$) in each patch $i$ change in response to fish population levels, the cost of stopping fishing activity, and the opinions of those in the patch and those in the other patch.
+
+## Model Construction
+
+We build on the work of @bauchEarlyWarningSignals2016 by extending their old-growth forest model to a two-patch model (Figure \ref{Conceptual}). The resource population models adapted from @bauchEarlyWarningSignals2016 are as follows:
+
+\begin{equation} 
+  \frac{dF_i}{dt} = r_iF_i(1-F_i)-\frac{h_i*F_i}{F_i + s_i} - m_jF_i + m_iF_j
+  (\#eq:fish1)
+\end{equation}
+
+where the change in resource populations $F_i$ is dependent on $r_i$, the net population growth of each patch $i$, and both populations follow logistic growth. The second term: $\frac{h_i*F_i}{F_i + s_i}$, denotes population lost to human activity. $h_i$ is the harvesting efficiency of the respective human population and $s_i$ controls the supply and demand of the system. Because we extend this to a two-patch model, the $m_i$ parameter denotes the movement of the harvested species out of patch $i$ and into patch $j$. In this study, we assume a closed population between the two patches. Therefore, individuals move directly from patch to patch and do not disperse elsewhere, nor are individuals immigrating from outside areas.
+
+For the model of human activity and opinion, we use replicator dynamics from evolutionary game theory to simulate societal influence on an individual’s opinion. Humans in this population can either be harvesters (therefore participating in harvesting activity) or conservationists (who do not partake in resource extraction), but can change from their current opinion to the other based on the perceived values and costs of each stance. Social dynamics are represented by the proportion of conservationists in a population ($X$) and the proportion of harvesters ($1-X$). These two groups of conservationists and harvesters interact with one another using the term $(X)(1-X)$ which simulates individuals “sampling” the opinions other individuals in the population. If one opinion dominates in the population (i.e. $X >> (1-X)$ or $(1-X) >> X$), the rate of changing opinions will be slow as the power of societal pressure makes it challenging for the other opinion to gain traction. However, if $X$ and ($1-X$) are close, the rate of change in opinion will be fast as society has a split opinion on conservation versus harvest, so individuals will be quick to take up the opinions of others. In this model, each person holds an opinion (conservation or harvest) by weighing the benefits of conservation ($U_A$) against the benefits of harvest ($U_B$), resulting in the replicator equation:
+
+\begin{equation} 
+\frac{dX_i}{dt} = k_iX_i(1-X_i)[U_{A,i} - U_{B,i}]
+  (\#eq:rep1)
+\end{equation}
+
+\begin{equation} 
+\frac{dX_i}{dt} = k_iX_i(1-X_i)[\Delta U_i]
+  (\#eq:rep2)
+\end{equation}
+
+where $k_i$ refers to the rate of interaction within a group. As individuals “sample” the opinions of others in their group, they can switch from A to B if $U_B$ > $U_A$ and vice versa. In our model, we adapted $U_A$, the perceived benefit of conservation, from @bauchEarlyWarningSignals2016 with the added influence of the other population's opinion. $U_A$ is therefore given by:
+
+\begin{equation} 
+U_{A,i} = \frac{1}{(F_i + c_i)} + d_iX_i + \rho_i X_j
+  (\#eq:pros1)
+\end{equation}
+
+where $\frac{1}{(F_i + c_i)}$ represents the perceived rarity of the harvested population within a patch. As $F_i$ and $c_i$ (the rarity valuation parameter) decrease, perceived rarity will increase, therefore adding to the perceived benefit of protecting resources. $d_i$ refers to the social influence that each population has on itself, and as an individual encounters a conservationist in their own population ($X_i$), the social benefit of also being a conservationist is shown in $d_i$. $\rho_i$ has this similar effect of social influence, but denotes the social effect of the opposite population on decision making ($X_j$). Individuals in each population $i$ are receiving information about the conservation practices of the other population $j$, and the influence that this has on each population is encapsulated by $\rho_i$.
+
+$U_B$ (the perceived benefits of harvest) is:
+
+\begin{equation} 
+U_{B,i} = \omega_i + d_i(1-X_i) + \rho_i(1-X_j)
+  (\#eq:cons1)
+\end{equation}
+
+where $\omega_i$ is the cost of conservation (i.e. revenue lost by not harvesting) where now, $d_i$ is the within-population social benefit of switching to harvesting ($1-X_i$) and $\rho_i$ is the other population's ($1-X_j$) ability to change the opinion of an individual to be a harvester.
+
+Plugging equations \@ref(eq:pros1) and \@ref(eq:cons1) into equation \@ref(eq:rep1) gives:
+
+\begin{equation} 
+\frac{dX_1}{dt} =  k_1X_1(1-X_1) [\frac{1}{F_1+c_1} - \omega_1 + d_1(2X_1 - 1) + \rho_1(2X_2 - 1)]
+  (\#eq:social1)
+\end{equation}
+
+\begin{equation} 
+\frac{dX_2}{dt} = k_2X_2(1-X_2)  [\frac{1}{F_2+c_2} - \omega_2 + d_2(2X_2 - 1) +  \rho_2(2X_1 - 1)]
+  (\#eq:social2)
+\end{equation}
+
+where specifics of the derivation are outlined in the supplementary material. Coupling the resource population and human opinion models gives:
+
+\begin{equation}
+\frac{dF_1}{dt} = r_1F_1(1-F_1)-\frac{h_1*F_1(1-X_1)}{F_1 + s_1} -m_2F_1 + m_1F_2
+  (\#eq:FishWhole1)
+\end{equation}
+
+\begin{equation}
+\frac{dF_2}{dt} = r_2F_2(1-F_2)-\frac{h_2*F_2(1-X_2)}{F_2 + s_2} -m_1F_2 + m_2F_1
+  (\#eq:FishWhole2)
+\end{equation}
+
+\begin{equation}
+\frac{dX_1}{dt} =  k_1X_1(1-X_1) [\frac{1}{F_1+c_1} - \omega_1 + d_1(2X_1 - 1) + \rho_1(2X_2 - 1)]
+  (\#eq:SocWhole1)
+\end{equation}
+
+\begin{equation}
+\frac{dX_2}{dt} = k_2X_2(1-X_2)  [\frac{1}{F_2+c_2} - \omega_2 + d_2(2X_2 - 1) +  \rho_2(2X_1 - 1)]
+  (\#eq:SocWhole2)
+\end{equation}
+
+where the harvesting pressure is now a function of the number of harvesters in a population ($\frac{h_iF_i(1-X_i)}{F_i + s_i}$). Further, the opinion of each population will shift based on the perceived population health of their respective patch weighed against the costs and benefits of conservation. As resources decrease, individuals will sway more toward conservation, thereby relieving harvest pressure. However, we now have an external influence in this model: the opinions of people in population $j$. The strength of this external influence is $\rho$, and in this study, we plan to simulate inequalities in human societies with this parameter.
+
+(ref:defaultparamtable) Default parameter values used in this analysis taken from @bauchEarlyWarningSignals2016 where oscillations are observed.
+
+```{r DefaultParamTable, results = 'asis', echo = FALSE}
+
+# params_dispersal <- data.frame(r_1 = 0.40, s_1 = 0.8, h_1 = 0.25, k_1 = 1.014, w_1 = 0.2, c_1 = 1.5, d_1 = 0.5, m_1 = 0.2, rho_1 = 0.1,
+#                                r_2 = 0.35, s_2 = 0.8, h_2 = 0.5, k_2 = 1.014, w_2 = 0.35, c_2 = 1.5, d_2 = 0.5, m_2 = 0.2, rho_2 = 0.5)
+
+params_list <- data.frame(r_1 = 0.16, s_1 = 0.8, h_1 = .25, k_1 = 0.17, w_1 = 1.44, c_1 = 0.5, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+                          r_2 = 0.16, s_2 = 0.8, h_2 = .25, k_2 = 0.17, w_2 = 1.44, c_2 = 0.5, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+
+giveparams <- data.frame(matrix(, nrow = 9, ncol = 4))
+colnames(giveparams) <- c("Parameter", "Population_1", "Population_2", "Definition")
+
+giveparams$Parameter <- c("r", "s", "h", "k", "$\\omega$", "c", "d", "m", "$\\rho$")
+giveparams$Population_1 <- c(params_list[1:9])
+giveparams$Population_2 <- c(params_list[10:18])
+colnames(giveparams) <- c("Parameter", "Population 1", "Population 2", "Definition")
+
+giveparams$Definition <- c("Fish net growth",
+                    "Supply and demand",
+                    "Harvesting efficiency",
+                    "Rate of sampling opinions or social interaction",
+                    "Conservation cost",
+                    "Rarity valuation",
+                    "Strength of social influence (within population)",
+                    "Fish movement (from opposite patch)",
+                    "Strength of social influence (opposite population)")
+
+knitr::kable(giveparams, format = "pandoc", booktabs = TRUE, caption = "(ref:defaultparamtable) \\label{DefaultParamTable}")
+
+```
+
+The default parameters used to analyze the resources movement and human hierarchy parameters were taken from an analyses done in @bauchEarlyWarningSignals2016 and given in Table \ref{DefaultParamTable}. Here, @bauchEarlyWarningSignals2016 found an oscillatory behavior where decreased forest cover resulted in decreased harvest due to the replicator dynamics of the human system which allowed for forest recovery and humans to begin high harvest once again.
+
+## Parameter Analyses
+
+In order to understand how resource movement ($m_1$ and $m_2$) affects dynamics, we first compare how the system will change when both patches are equal (i.e. all of the parameters in each patch is the same) by increasing both $m_1$ and $m_2$ incrementally and running the model for 1000 years. We then compare this to the asymmetrical case, where we just increase the $m_1$ parameter and see the effect on the model for the next 1000 years. We also construct bifurcation curves of the $m_1$ parameter when compared to resource populations in order to understand their effect on dynamics. Further, to analyze the human hierarchy parameters $\rho_1$ and $\rho_2$, we constructed this same analyses of increasing $\rho_2$, or the amount of influence of human population 2 ($X_2$) has on the dynamics of human population 1 ($X_1$). We also compared this to the effect on incrementally increasing $d_1$.
+
+
+## Co-Managed Small Scale Fishery Case Study
+
+For a small scale fishery, we choose to model a two-patch fishery where patch 1 is fishing sustainably while patch 2 is over-harvesting. The harvested fish species has a mid-range growth rate and regularly diffuses across the two patches, such as the parrot fish modeled in @thampiSocioecologicalDynamicsCaribbean2018, which uses a fish growth rate of is 0.35 fish per year, but alter patch 1's growth rate to be 0.4 fish per year.  For the harvesting efficiency, we choose a maximal fishing rate of 0.5. These parameters were adapted from a coral reef fishing model @thampiSocioecologicalDynamicsCaribbean2018 where $r = 0.35$ and $h = 0.5$ are the mid-level growth rate and max fishing rates analyzed by this paper. For the movement parameters $m$, we chose 0.2 for each as these are the values used in the two-patch fishing model described in @caiModelingAnalysisHarvesting2008. We used the $s$ parameter described in the @bauchEarlyWarningSignals2016 model of $s = 0.8$. For the purposes of our study, we are assuming a constant net growth rate of fish populations and that reproduction happens locally within each patch. The rate at which humans interact with one another is described by the parameter $k$. In our default model, we use $k = 1.014$ as adapted from the @thampiSocioecologicalDynamicsCaribbean2018 default model. @thampiSocioecologicalDynamicsCaribbean2018 calculated this parameter by fitting conservation opinion data in the United States from 1965 to 1990 to coral health data at that time [@thampiSocioecologicalDynamicsCaribbean2018]. We used the default rarity valuation parameter $c$ from @thampiSocioecologicalDynamicsCaribbean2018 where $c = 1.68$. The cost of conservation default parameter is $\omega = 0.35$ from @bauchEarlyWarningSignals2016. Further, as our default model has no human social hierarchy, we set $d = \rho = 0.5$ for our social norm strengths as adapted from @bauchEarlyWarningSignals2016 which models social decision making regarding deforestation.
+
+Based off of the default model described above, we then change parameters such that patch 1 is fished sustainably, meaning the fish population in patch 1 is able to persist regardless of the fishing pressure from human population 1. We then set patch 2 to be over-fished, meaning human patch 2 is fishing at too high a rate for the fish population to survive over time (Table \ref{DispersionParamTable}). Further, we add a social hierarchical component where patch 2 has a higher social influence on patch 1. To analyze the overfishing scenario, we incrementally increase the parameters $m$ and $\rho$ and simulated this system for 100 years in order to assess how increasing each new parameter would affect the overall dynamics of the system.
+
+(ref:dispersionparamtable) Parameter values used to simulate sustainable fishing practices in patch 1 and over-fishing in patch 2.
+
+```{r DispersionParamTable, results = 'asis', echo = FALSE}
+
+
+
+# params_dispersal <- data.frame(r_1 = 0.40, s_1 = 0.8, h_1 = 0.25, k_1 = 1.014, w_1 = 0.2, c_1 = 1.5, d_1 = 0.5, m_1 = 0.2, rho_1 = 0.1,
+#                                r_2 = 0.35, s_2 = 0.8, h_2 = 0.5, k_2 = 1.014, w_2 = 0.35, c_2 = 1.5, d_2 = 0.5, m_2 = 0.2, rho_2 = 0.5)
+
+params_dispersal <- data.frame(r_1 = 0.40, s_1 = 0.8, h_1 = 0.25, k_1 = 1.014, w_1 = 0.2, c_1 = 1.5, d_1 = 0.5, m_1 = 0.2, rho_1 = 0.5,
+                               r_2 = 0.35, s_2 = 0.8, h_2 = 0.5, k_2 = 1.014, w_2 = 0.35, c_2 = 1.5, d_2 = 0.5, m_2 = 0.2, rho_2 = 0.1)
+
+giveparams <- data.frame(matrix(, nrow = 9, ncol = 4))
+colnames(giveparams) <- c("Parameter", "Population_1", "Population_2", "Definition")
+
+giveparams$Parameter <- c("r", "s", "h", "k", "$\\omega$", "c", "d", "m", "$\\rho$")
+giveparams$Population_1 <- c(params_dispersal[1:9])
+giveparams$Population_2 <- c(params_dispersal[10:18])
+colnames(giveparams) <- c("Parameter", "Population 1", "Population 2", "Definition")
+
+giveparams$Definition <- c("Fish net growth",
+                    "Supply and demand",
+                    "Harvesting efficiency",
+                    "Rate of sampling opinions or social interaction",
+                    "Conservation cost",
+                    "Rarity valuation",
+                    "Strength of social influence (within population)",
+                    "Fish movement (from opposite patch)",
+                    "Strength of social influence (opposite population)")
+
+knitr::kable(giveparams, format = "pandoc", booktabs = TRUE, caption = "(ref:dispersionparamtable) \\label{DispersionParamTable}")
+
+```
+
+# RESULTS
+
+```{r Bauch.Coupled, warning = FALSE}
+
+
+##Maybe see what proportion of people can actually be fishing in this system to make it sustainable
+
+Bauch.Coupled <- function (t, y, params) {
+  ## first extract the state variables
+  F_1 <- y[1] #Fish Pop var
+  F_2 <- y[2] #Fish Pop var
+  X_1 <- y[3] #conservationist var
+  X_2 <- y[4] #conservationist var
+
+  #TT <- y[5]
+  
+  ## now extract the parameters
+  r_1 <- params["r_1"] # Net growth/fecundity
+  s_1 <- params["s_1"] # supply and demand
+  h_1 <- params["h_1"] # Harvesting efficiency
+  k_1 <- params["k_1"] # Social learning rate
+  w_1 <- params["w_1"] # conservation costs
+  c_1 <- params["c_1"] # rarity valuation param
+  d_1 <- params["d_1"] # social norm strength
+  m_1 <- params["m_1"] # Inflow of fish from pop 2 to pop 1
+  rho_1 <- params["rho_1"] # Influence of pop 2 on pop 1
+  
+  r_2 <- params["r_2"] # Net growth/fecundity
+  s_2 <- params["s_2"] # supply and demand
+  h_2 <- params["h_2"] # Harvesting efficiency
+  k_2 <- params["k_2"] # Social learning rate
+  w_2 <- params["w_2"] # conservation costs
+  c_2 <- params["c_2"] # rarity valuation param
+  d_2 <- params["d_2"] # social norm strength 
+  m_2 <- params["m_2"] # Inflow of fish from pop 1 to pop 2
+  rho_2 <- params["rho_2"] # Influence of pop 1 on pop 2
+  
+  ## now code the model equations
+  dF_1dt <-  r_1 * F_1 * (1-F_1) - (h_1 * F_1 * (1-X_1))/(F_1+s_1) - m_2 * F_1 + m_1 * F_2
+  dF_2dt <-  r_2 * F_2 * (1-F_2) - (h_2 * F_2 * (1-X_2))/(F_2+s_2) - m_1 * F_2 + m_2 * F_1
+  
+  dX_1dt <- k_1 * X_1 * (1-X_1) *(1/(F_1 + c_1) - w_1 + d_1*(2*X_1 - 1) + rho_1 * (2*X_2 - 1))
+  dX_2dt <- k_2 * X_2 * (1-X_2) *(1/(F_2 + c_2) - w_2 + d_2*(2*X_2 - 1) + rho_2 * (2*X_1 - 1))
+  
+  ## combine results into a single vector
+  dydt <- c(dF_1dt, dF_2dt, dX_1dt, dX_2dt)
+  ## return result as a list!
+  
+  list(dydt)
+}
+
+params_Bauch2 <- params_list
+
+times <- timespan
+xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+ode(
+  func=Bauch.Coupled,
+  y=xstart,
+  times=times,
+  parms=params_Bauch2
+) %>%
+  as.data.frame() -> out_Coupled
+
+# out_Coupled %>%
+#   gather(variable,value,-time) %>%
+#   ggplot(aes(x=time,y=value,color=variable))+
+#   geom_line(size=1)+
+#   theme_classic()+
+#   labs(x='Time (Year)',y='Population') +
+#   theme(legend.title=element_blank()) +
+#   scale_colour_discrete(labels=c(expression('F'[1]), expression('F'[2]), expression('X'[1]), expression('X'[2])))
+
+
+```
+
+## Movement Parameter
+
+To analyze the result of space on socio-ecological models, we observed the effects of increasing both $m_1$ and $m_2$ simultaneously (the symmetrical case) and compared this to the effects of only increasing $m_1$, or the movement of resources from patch 2 to patch 1 (Figure \ref{Movement}). Here, we find that movement does not change dynamics in the symmetrical case (Figure \ref{Movement} a), b), and c)), showing that if all parameters are the same in each patch, the movement of resources between them does not change dynamics. However, if there are differences between patches (Figure \ref{Movement} d), e), and f)), resource movement will greatly alter dynamics and if the model is undergoing oscillations, the linear aspects of the movement parameters will eventually overcome the non-linear dynamics of oscillations if the movement parameter is sufficiently high.
+
+(ref:movement) In graphs a), b), and c), both $m_1$ and $m_2$ were set to 0.01, 0.05, and 0.1, respectively. The corresponding graphs show the dynamics of these models with the new parameterizations. d), e), and f) show the changes in model dynamics when $m_2$ is held at 0 and only $m_1$ (the movement of resources from patch 2 to patch 1) is increased by 0.01, 0.05, and 0.1, respectively. All other parameters were held at the values given in table \ref{DispersionParamTable}
+
+```{r Movement, warning = FALSE, fig.cap='(ref:movement) \\label{Movement}'}
+
+mparams <- c(0.01, 0.05, 0.1)
+plotList <- list()
+k <- 0
+titlesList <- c("a)", "b)", "c)", "d)", "e)", "f)")
+
+for(i in 1:length(mparams)){
+  k <- k+1
+  params_Default <- params_list
+  params_Default[8] <- mparams[i]
+  params_Default[17] <- mparams[i]
+
+  
+   times <- timespan
+    xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+    ode(
+      func=Bauch.Coupled,
+      y=xstart,
+      times=times,
+      parms=params_Default
+    ) %>%
+      as.data.frame() -> out_Diff
+    
+  if(k == 1) {
+    p <- out_Diff %>%
+      gather(variable,value,-time) %>%
+      ggplot(aes(x=time,y=value,color=variable))+
+      geom_line(size=1)+
+      theme_classic()+
+      scale_colour_manual(values=cbbPalette) +
+      labs(x='Time (yr)',y='Population') +
+      ggtitle(label = "Symmetrical Movement", subtitle = titlesList[k]) +
+      theme(plot.title = element_text(hjust = .5))
+    plotList[[k]] <- p
+    
+  }else{
+    p <- out_Diff %>%
+      gather(variable,value,-time) %>%
+      ggplot(aes(x=time,y=value,color=variable))+
+      geom_line(size=1)+
+      theme_classic()+
+      scale_colour_manual(values=cbbPalette) +
+      labs(x='Time (yr)',y='Population') +
+      ggtitle(label = NULL, subtitle = titlesList[k])
+    plotList[[k]] <- p
+  }
+}
+
+for(i in 1:length(mparams)){
+  k <- k+1
+  params_Default <- params_list
+  params_Default[8] <- mparams[i]
+  #params_Default[17] <- mparams[i]
+
+  
+   times <- timespan
+    xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+    ode(
+      func=Bauch.Coupled,
+      y=xstart,
+      times=times,
+      parms=params_Default
+    ) %>%
+      as.data.frame() -> out_Diff
+    
+    if(k == 4) {
+      p <- out_Diff %>%
+        gather(variable,value,-time) %>%
+        ggplot(aes(x=time,y=value,color=variable))+
+        geom_line(size=1)+
+        theme_classic()+
+        scale_colour_manual(values=cbbPalette) +
+        labs(x='Time (yr)',y='Population') +
+      ggtitle(label = "Asymmetrical Movement", subtitle = titlesList[k]) +
+      theme(plot.title = element_text(hjust = .5))
+      plotList[[k]] <- p
+    
+    }else if(k == 6){
+      p <- out_Diff %>%
+      gather(variable,value,-time) %>%
+      ggplot(aes(x=time,y=value,color=variable))+
+      geom_line(size=1)+
+      theme_classic()+
+      scale_colour_manual(values=cbbPalette) +
+      labs(x='Time (yr)',y='Population') +
+      ggtitle(label = NULL, subtitle = titlesList[k]) +
+      scale_discrete_manual(values=cbbPalette, aesthetics = "colour",name = "Variable", labels=c(expression('F'[1]), expression('F'[2]), expression('X'[1]), expression('X'[2])))
+    plotList[[k]] <- p
+    
+    }else{
+      p <- out_Diff %>%
+        gather(variable,value,-time) %>%
+        ggplot(aes(x=time,y=value,color=variable))+
+        geom_line(size=1)+
+        theme_classic()+
+        scale_colour_manual(values=cbbPalette) +
+        labs(x='Time (yr)',y='Population') +
+        ggtitle(label = NULL, subtitle = titlesList[k])
+      plotList[[k]] <- p
+    }
+  
+}
+
+#function to extract the legend of a ggplot; source:
+#https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
+
+get_legend<-function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)}
+
+
+#arranging the legend and plots in a grid:
+
+p_legend <- get_legend(plotList[[6]])
+
+grid.arrange(arrangeGrob(plotList[[1]] + theme(legend.position="none"),
+                         plotList[[4]] + theme(legend.position="none"),
+                         plotList[[2]] + theme(legend.position="none"),
+                         plotList[[5]] + theme(legend.position="none"),
+                         plotList[[3]] + theme(legend.position="none"),
+                         plotList[[6]] + theme(legend.position="none"),
+                         nrow=3),
+             p_legend,
+             ncol=2,widths=c(2, 0.3))
+
+```
+
+```{r fxnBifCurve}
+
+#Taken from: https://www.r-bloggers.com/2010/06/r-tools-for-dynamical-systems-bifurcation-plot-in-r%C2%A0for%C2%A0system%C2%A0of%C2%A0odes/
+
+
+
+#To avoid confusion, x1 -> x, x2 -> y, f1 -> f, f2 -> g
+# Bauch.Coupled <- function (Time, State, Pars) {
+#   with(as.list(c(State, Pars)), {
+#     dfdt <-  r_1 * f * (1-f) - (h_1 * f * (1-x))/(f+s_1) - m_2 * f + m_1 * g
+#     dgdt <-  r_2 * g * (1-g) - (h_2 * g * (1-y))/(g+s_2) - m_1 * g + m_2 * f
+#   
+#     dxdt <- k_1 * x * (1-x) *(1/(f + c_1) - w_1 + d_1*(2*x - 1) + rho_1 * (2*y - 1))
+#     dydt <- k_2 * y * (1-y) *(1/(g + c_2) - w_2 + d_2*(2*y - 1) + rho_2 * (2*x - 1))
+#     
+#     return(list(c(df, dg, dx, dy)))
+#   })
+# }
+
+bifCurve <- function(parameter, variable, paramrange, paramletter, paramno, variableletter, variableno){
+  
+  titlesList <- c("a)", "b)", "c)", "d)", "e)", "f)")
+  n <- 100 # number of simulations
+  param.name <- parameter # choose parameter to perturb
+  param.seq <- seq(0,paramrange,length = 50) # choose range of parameters
+  Pars <- c(r_1 = 0.16, s_1 = 0.8, h_1 = .25, k_1 = 0.17, w_1 = 1.44, c_1 = 0.5, d_1 = 0.3, m_1 = 0, rho_1 = 0,
+          r_2 = 0.16, s_2 = 0.8, h_2 = .25, k_2 = 0.17, w_2 = 1.44, c_2 = 0.5, d_2 = 0.3, m_2 = 0, rho_2 = 0)
+  Time <- seq(0, 10, length = n)
+  State <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+  
+  param.index <- which(param.name == names(Pars))
+  out <- list()
+  for (i in 1:length(param.seq))
+    out[[i]] <- matrix(0, n, length(State))
+  for (i in 1:length(param.seq)) {
+    # set params
+    Pars.loop <- Pars
+    Pars.loop[param.index] <- param.seq[i]
+    # converge
+    init <- ode(State, Time, Bauch.Coupled, Pars.loop)
+    # get converged points
+    out[[i]] <- ode(init[n,-1], Time, Bauch.Coupled, Pars.loop)[,-1]
+  }
+  
+  xl <- bquote(Parameter ~ .(paramletter)[.(paramno)])
+  yl <- bquote(Variable ~ .(variableletter)[.(variableno)])
+  
+  range.lim <- lapply(out, function(x) apply(x, 2, range))
+  range.lim <- apply(do.call("rbind", range.lim), 2, range)
+  plot.variable <- variable # choose which variable to show
+  plot(0, 0, pch = "", xlab = xl, ylab =  yl, #xlab = param.name, ylab = plot.variable, #make axis.titles
+       xlim = range(param.seq), ylim = range.lim[,plot.variable])
+  title(titlesList[variableno], adj = 0)
+  for (i in 1:length(param.seq)) {
+    points(rep(param.seq[i], n), out[[i]][,plot.variable])
+  }
+}
+```
+
+<!-- (ref:mbifcurve) , fig.cap = '(ref:mbifcurve) \\label{mBifCurve}' -->
+
+<!-- Next, we create bifurcation curves of the $m_1$ parameter to show how high values of the $m_1$ parameter changes the dynamics of the system as it increases (Figure \ref{mBifCurve}). This shows how as $m_1$ increases, both the dynamics of resource population 1 and resource population 2 will be altered. -->
+
+<!-- (ref:mbifcurve) Bifurcation curves of resource populations a)$F_1$ and b)$F_2$ in response to changes in $m_1$ parameter. YOU SAID THIS NEEDS TO BE ADJUSTED. HOW? OR SHOULD i INCLUDE AT ALL? -->
+
+```{r mBifCurve, results = 'asis', results = 'asis', echo = FALSE, fig.show = "hold", out.width = "50%", fig.cap = '(ref:mbifcurve) \\label{mBifCurve}', include = FALSE}
+
+#Below is for calcualting all of the bifurcation curves. We're only going to look at m vs the two F's
+# BifParams <- c("rho_1", "rho_2", "m_1", "m_2") 
+# BifVars <- c("F_1", "F_2","X_1", "X_2")
+# plotList <- list()
+# 
+# for(k in 1:length(BifParams)){
+#   for(g in 1:length(BifVars)){
+#   #plotList[[g]] <- bifCurve(BifParams[g], BifVars[k], 1)
+#   bifCurve(BifParams[g], BifVars[k], 1)
+#   }
+#   # do.call("grid.arrange", c(plotList, ncol=2))
+#   # plotList <- list()
+# }
+
+bifCurve("m_1", "F_1", 1, 'm', 1, 'F', 1)
+
+bifCurve("m_1", "F_2", 1, 'm', 1, 'F', 2)
+
+```
+
+## Social Hierarchy Parameter
+
+In figure \ref{influenceAsym}, we can see that increases in $d_1$ result in higher amplitude oscillations, where $F_1$ will dip to almost 0 for many years then recover back to 1. Increases in $d_1$ affect the model differently than increases in $\rho_2$, the influence of the other human population. Here, the population dynamics of $F_1$ stay relatively constant around 0.2, and only have very small oscillations around this number, therefore increases in $d_1$ can result extreme booms and busts of resource populations while increases in $\rho_2$ results in limited populations, but these but the resulting dynamics oscillate less, which indicates more stable dynamics. Increases in either $d_1$ or $\rho_2$ result in less frequent oscillations, meaning humans are slower to change population levels and that plot 1's resource populations spend more time at the peaks of their oscillations before either recovering from 0 or decreasing from 1.
+
+
+(ref:influenceasym) The difference in increasing social pressure within population 1 (the $d_1$ parameter is increased down the columns of graphs) versus increasing social pressure from population 1 onto population 1 (the $\rho_2$ parameter is increased across rows of graphs). 
+
+```{r influenceAsym, warning = FALSE, fig.cap = '(ref:influenceasym) \\label{influenceAsym}'}
+
+rhoparams <- c(0, 0.25, 0.5)
+dparams <- c(0, 0.25, 0.5)
+
+plotList <- list()
+k <- 0
+
+for(i in 1:length(dparams)){
+  params_Default <- params_list
+  params_Default[7] <- dparams[i]
+  #params_Default[16] <- dparams[i]
+  
+  for(j in 1:length(rhoparams)){
+    k <- k+1
+    #params_Default[9] <- rhoparams[j]
+    params_Default[18] <- rhoparams[j]
+  
+   times <- timespan
+    xstart <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+    ode(
+      func=Bauch.Coupled,
+      y=xstart,
+      times=times,
+      parms=params_Default
+    ) %>%
+      as.data.frame() -> out_Diff
+    
+    if(k ==1){
+      p <- out_Diff %>%
+      gather(variable,value,-time) %>%
+      ggplot(aes(x=time,y=value,color=variable))+
+      geom_line(size=1)+
+      theme_classic()+
+      scale_colour_manual(values=cbbPalette) +
+      scale_x_discrete(name = "", limits = c(0, 500, 950)) +
+      scale_y_discrete(name = "", limits = c(0, 0.5, 0.95)) +
+      # scale_x_discrete(name = "Time (Year)", limits = c(0,750)) +
+      # scale_y_discrete(name = "Population", limits = c(0, 0.5, 1)) +
+      scale_discrete_manual(values=cbbPalette, aesthetics = "colour", name = "Variable", labels=c(expression('F'[1]), expression('F'[2]), expression('X'[1]), expression('X'[2]))) +
+      ggtitle(paste("\u03B4 = ", params_Default[7], "\u03C1 = ", params_Default[18])) +
+      theme(plot.title = element_text(size=7))
+    plotList[[k]] <- p
+    
+    }else{
+      p <- out_Diff %>%
+        gather(variable,value,-time) %>%
+        ggplot(aes(x=time,y=value,color=variable))+
+        geom_line(size=1)+
+        theme_classic()+
+        scale_colour_manual(values=cbbPalette) +
+        scale_x_discrete(name = "", limits = c(0, 500, 950)) +
+        scale_y_discrete(name = "", limits = c(0, 0.5, 0.95)) +
+        # scale_x_discrete(name = "Time (Year)", limits = c(0,750)) +
+        # scale_y_discrete(name = "Population", limits = c(0, 0.5, 1)) +
+        #theme(legend.position = "none") +
+        ggtitle(paste("\u03B4 = ", params_Default[7], "\u03C1 = ", params_Default[18])) +
+        theme(plot.title = element_text(size=7))
+      plotList[[k]] <- p
+    }
+  }
+}
+
+yleft = richtext_grob("Population", rot=90)
+
+bottom = richtext_grob(
+  text = 'Time (year)'
+)
+  
+
+  p_legend <- get_legend(plotList[[1]])
+
+grid.arrange(arrangeGrob(plotList[[1]] + theme(legend.position="none"),
+                         plotList[[2]] + theme(legend.position="none"),
+                         plotList[[3]] + theme(legend.position="none"),
+                         plotList[[4]] + theme(legend.position="none"),
+                         plotList[[5]] + theme(legend.position="none"),
+                         plotList[[6]] + theme(legend.position="none"),
+                         plotList[[7]] + theme(legend.position="none"),
+                         plotList[[8]] + theme(legend.position="none"),
+                         plotList[[9]] + theme(legend.position="none"),
+                         nrow=3, left = yleft, bottom = bottom),
+             p_legend, 
+             ncol=2,widths=c(2, 0.3))
+
+```
+
+## Scenario Analysis
+
+We then modeled a hypothetical scenario where patch 1 is fished sustainably whereas patch 2 is experiencing over-fishing and has a higher social sway than patch 1. We modeled overfishing by altering fish new growth rates (r), harvesting efficiencies (h), costs of conservation ($\omega$), and external social norm strengths ($\rho$) (Table \ref{DispersionParamTable}). Here, the unsustainable practices of human population 2 are so exploitative, that both fish populations eventually collapse<!-- (Figure  \ref{DispersionScenario}) -->. We used this overfishing parameterization for the rest of the analysis of a co-managed small-scale fishery.
+
+(ref:dispersionscenario) Representation of the dynamics of both the fish populations ($F_i$) and human conservationists ($X_i$) in each patch with default parameters from table \ref{DefaultParamTable} after 1000 years. 
+
+```{r DispersionScenario, fig.cap = '(ref:dispersionscenario) \\label{DispersionScenario}', eval = FALSE}
+
+ode(
+  func=Bauch.Coupled,
+  y=xstart,
+  times=times,
+  parms=params_dispersal
+) %>%
+  as.data.frame() -> out_dispersion
+
+out_dispersion %>%
+  gather(variable,value,-time) %>%
+  ggplot(aes(x=time,y=value,color=variable))+
+  geom_line(size=1)+
+  theme_classic()+
+  scale_colour_manual(values=cbbPalette) +
+  labs(x='Time (Year)',y='Population') +
+  theme(legend.title=element_blank()) +
+  scale_colour_discrete(labels=c(expression('F'[1]), expression('F'[2]), expression('X'[1]), expression('X'[2])))
+
+#Social inequity scenario where rho_1 = 0.25 and h_1 = 1
+
+```
+
+Next, we ran our model with the parameterization outlined in table \ref{DispersionParamTable} with incrementally higher external social influence values ($\rho$) in both populations and observed how this affected the final population of each fish patch (Figure  \ref{rhoExploreGraph}). We found that under different parameterizations, there were often instances where $\rho$ acted as a tipping point for population dynamics where instead of continuously changing the final fish populations, the $\rho$ parameter either resulted in stable fish populations or both stocks collapsed once $\rho$ increased past this tipping point.
+
+
+```{r rhoExplore}
+
+param_seq <- seq(0, .5, by = .01)
+finalDynamics <- data.frame(matrix(, nrow = (length(param_seq)), ncol = 3))
+colnames(finalDynamics) <- c("Parameter_New", "F1", "F2")
+timespan <- seq(from = 0, to = 100, by = .1)
+
+starting_defaultparams <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+for(i in 1:length(param_seq)){
+  #Run momdel with each new param combo
+  
+  # params_test <- params_dispersal  
+  # params_test$m_1 <- param_seq[i]
+  # params_test$m_2 <- param_seq[i]
+  
+  
+  params_test <- params_dispersal
+  params_test$rho_1 <- param_seq[i]
+  params_test$rho_2 <- param_seq[i]
+  
+  finalDynamics$Parameter_New[i] <- param_seq[i]
+
+  ode(
+    func=Bauch.Coupled,
+    y=starting_defaultparams,
+    times=timespan,
+    parms=params_test
+  ) %>%
+    as.data.frame() -> out_Coupled
+
+  #Compile output into Dataframe
+  finalDynamics$F1[i] <- out_Coupled[nrow(out_Coupled), 2]
+  finalDynamics$F2[i] <- out_Coupled[nrow(out_Coupled), 3]
+
+}
+
+param_seq <- seq(0, .5, by = .01)
+finalDynamics1 <- data.frame(matrix(, nrow = (length(param_seq)), ncol = 3))
+colnames(finalDynamics1) <- c("Parameter_New", "F1", "F2")
+
+for(i in 1:length(param_seq)){
+  #Run momdel with each new param combo
+  
+  # params_test <- params_dispersal  
+  # params_test$m_1 <- param_seq[i]
+  # params_test$m_2 <- param_seq[i]
+  
+  
+  params_test <- params_dispersal
+  params_test$rho_1 <- param_seq[i]
+  #params_test$rho_2 <- param_seq[i]
+  
+  finalDynamics1$Parameter_New[i] <- param_seq[i]
+
+  ode(
+    func=Bauch.Coupled,
+    y=starting_defaultparams,
+    times=timespan,
+    parms=params_test
+  ) %>%
+    as.data.frame() -> out_Coupled
+
+  #Compile output into Dataframe
+  finalDynamics1$F1[i] <- out_Coupled[nrow(out_Coupled), 2]
+  finalDynamics1$F2[i] <- out_Coupled[nrow(out_Coupled), 3]
+
+}
+
+param_seq <- seq(0, .5, by = .01)
+finalDynamics2 <- data.frame(matrix(, nrow = (length(param_seq)), ncol = 3))
+colnames(finalDynamics2) <- c("Parameter_New", "F1", "F2")
+
+for(i in 1:length(param_seq)){
+  #Run momdel with each new param combo
+  
+  # params_test <- params_dispersal  
+  # params_test$m_1 <- param_seq[i]
+  # params_test$m_2 <- param_seq[i]
+  
+  
+  params_test <- params_dispersal
+  #params_test$rho_1 <- param_seq[i]
+  params_test$rho_2 <- param_seq[i]
+  
+  finalDynamics2$Parameter_New[i] <- param_seq[i]
+
+  ode(
+    func=Bauch.Coupled,
+    y=starting_defaultparams,
+    times=timespan,
+    parms=params_test
+  ) %>%
+    as.data.frame() -> out_Coupled
+
+  #Compile output into Dataframe
+  finalDynamics2$F1[i] <- out_Coupled[nrow(out_Coupled), 2]
+  finalDynamics2$F2[i] <- out_Coupled[nrow(out_Coupled), 3]
+
+}
+
+```
+
+<!-- (ref:rhoexploregrapheach) Each rho individually. Ok so here's my confusion, above in \ref{influenceAsym} I say that incorporating new information will increase stability but here, as pop 2 (which is unsustainable) listens to pop 1 more, the whole thing crashes. Earlier we said this was because pop 1 is continuing to fish, so therefore encouraging pop 2 to fish more (looking at graph a) -->
+
+```{r rhoExploreGraphEach, eval = FALSE, results = 'asis', echo = FALSE, fig.show = "hold", out.width = "50%", fig.cap = '(ref:rhoexploregrapheach) \\label{rhoExploreGraphEach}'}
+
+patchcolors <- c("#567de9", "#D55E00")
+
+finalDynamics1_long <- gather(finalDynamics1, plot, Population, F1:F2, factor_key=TRUE)
+
+finalDynamics1_long %>%
+  ggplot(aes(Parameter_New, Population, color=plot)) +
+  geom_line() +
+  geom_point(alpha=0.5, size=1) +
+  scale_color_manual(values = patchcolors) +
+  ggtitle('a)') +
+  labs(y="Final Fish Population", x="rho1 Value") +
+  theme_classic() +  
+  theme(legend.position = "none")
+
+#Scatter plot
+
+patchcolors <- c("#567de9", "#D55E00")
+
+finalDynamics2_long <- gather(finalDynamics2, plot, Population, F1:F2, factor_key=TRUE)
+
+finalDynamics2_long %>%
+  ggplot(aes(Parameter_New, Population, color=plot)) +
+  geom_line() +
+  geom_point(alpha=0.5, size=1) +
+  ggtitle('b)') +
+  labs(y="Final Fish Population", x="rho2 Value") +
+  theme_classic() +
+  theme(legend.title=element_blank()) +
+  scale_colour_manual(values = patchcolors, labels=c(expression('F'[1]), expression('F'[2])))
+
+
+
+
+```
+
+(ref:rhoexploregraph) Final fish populations after 100 years in the two-patch fishing model where the $F_1$ population in patch 1 is fished sustainably but human population 1 has a lower social influence than humans in patch 2, where $F_2$ is being fished unsustainably. Both $\rho_1$ and $\rho_2$ were increased simultaneously.
+
+```{r rhoExploreGraph, fig.cap = '(ref:rhoexploregraph) \\label{rhoExploreGraph}'}
+
+patchcolors <- c("#567de9", "#D55E00")
+
+finalDynamics_long <- gather(finalDynamics, plot, Population, F1:F2, factor_key=TRUE)
+
+finalDynamics_long %>%
+  ggplot(aes(Parameter_New, Population, color=plot)) +
+  geom_line() +
+  geom_point(alpha=0.5, size=1) +
+  scale_color_manual(values = patchcolors) +
+  labs(y="Final Fish Population", x="\u03C1 Value") +
+  theme_classic() +
+  theme(legend.title=element_blank()) +
+  scale_colour_manual(values = patchcolors, labels=c(expression('F'[1]), expression('F'[2])))
+
+
+
+
+```
+
+We then ran the same analysis with the fish dispersal parameter, $m$, by changing $m_1$ and $m_2$ individually. Contrary to the effect external social influence ($\rho$) had on the model, dispersal had a more direct and continuous effect on the final population of fish in each patch. For example, as fish movement from patch 2 to patch 1 increased (i.e. from the unsustainable patch to the sustainable patch), this actually maintained low fish populations the sustainable patch, but resulted in crashed populations in the unsustainable (Figure  \ref{mExploreGraph} a). However, if the fish movement was increased from patch 1 to patch 2 (from the sustainable fishing to unsustainable), both patches eventually collapsed to zero (Figure  \ref{mExploreGraph} b).
+
+```{r mExplore}
+
+param_seq <- seq(0, 1, by = .01)
+finalDynamics1 <- data.frame(matrix(, nrow = (length(param_seq)), ncol = 3))
+colnames(finalDynamics1) <- c("Parameter_New", "F1", "F2")
+timespan <- seq(from = 0, to = 100, by = .1)
+
+starting_defaultparams <- c(F_1 = 0.406, F_2 = 0.406, X_1 = .24, X_2 = .24)
+
+for(i in 1:length(param_seq)){
+  #Run momdel with each new param combo
+  
+  params_test <- params_dispersal
+  params_test$m_1 <- param_seq[i]
+  
+  finalDynamics1$Parameter_New[i] <- param_seq[i]
+
+  ode(
+    func=Bauch.Coupled,
+    y=starting_defaultparams,
+    times=timespan,
+    parms=params_test
+  ) %>%
+    as.data.frame() -> out_Coupled
+
+  #Compile output into Dataframe
+  finalDynamics1$F1[i] <- out_Coupled[nrow(out_Coupled), 2]
+  finalDynamics1$F2[i] <- out_Coupled[nrow(out_Coupled), 3]
+
+}
+
+finalDynamics2 <- data.frame(matrix(, nrow = (length(param_seq)), ncol = 3))
+colnames(finalDynamics2) <- c("Parameter_New", "F1", "F2")
+
+for(i in 1:length(param_seq)){
+  #Run momdel with each new param combo
+  
+  params_test <- params_dispersal
+  params_test$m_2 <- param_seq[i]
+  
+  finalDynamics2$Parameter_New[i] <- param_seq[i]
+
+  ode(
+    func=Bauch.Coupled,
+    y=starting_defaultparams,
+    times=timespan,
+    parms=params_test
+  ) %>%
+    as.data.frame() -> out_Coupled
+
+  #Compile output into Dataframe
+  finalDynamics2$F1[i] <- out_Coupled[nrow(out_Coupled), 2]
+  finalDynamics2$F2[i] <- out_Coupled[nrow(out_Coupled), 3]
+
+}
+
+finalDynamics3 <- data.frame(matrix(, nrow = (length(param_seq)), ncol = 3))
+colnames(finalDynamics3) <- c("Parameter_New", "F1", "F2")
+
+for(i in 1:length(param_seq)){
+  #Run momdel with each new param combo
+  
+  params_test <- params_dispersal
+  params_test$m_2 <- param_seq[i]
+  
+  finalDynamics3$Parameter_New[i] <- param_seq[i]
+
+  ode(
+    func=Bauch.Coupled,
+    y=starting_defaultparams,
+    times=timespan,
+    parms=params_test
+  ) %>%
+    as.data.frame() -> out_Coupled
+
+  #Compile output into Dataframe
+  finalDynamics3$F1[i] <- out_Coupled[nrow(out_Coupled), 2]
+  finalDynamics3$F2[i] <- out_Coupled[nrow(out_Coupled), 3]
+
+}
+
+```
+
+(ref:mExploregraph)  Final fish populations after 100 years in the two-patch fishing model where patch 1 ($F_1$) is fished sustainably but human population 1 has a lower social influence than patch 2, where $F_2$ is being fished unsustainably. a) shows how increases in fish movement into patch 1 ($m_1$) affect final populations and b) shows how increases in fish movement into patch 2 ($m_2$) affect final populations.
+
+```{r mExploreGraph, results = 'asis', echo = FALSE, fig.show = "hold", out.width = "50%", fig.cap = '(ref:mExploregraph) \\label{mExploreGraph}'}
+
+patchcolors <- c("#567de9", "#D55E00")
+
+finalDynamics1_long <- gather(finalDynamics1, plot, Population, F1:F2, factor_key=TRUE)
+
+finalDynamics1_long %>%
+  ggplot(aes(Parameter_New, Population, color=plot)) +
+  geom_line() +
+  geom_point(alpha=0.5, size=1) +
+  scale_color_manual(values = patchcolors) +
+  ggtitle('a)') +
+  labs(y="Final Fish Population", x = "Fish movement from patch 2 to patch 1") +
+  theme_classic() +  
+  theme(legend.position = "none", axis.title = element_text(size = 18))
+
+#Scatter plot
+
+patchcolors <- c("#567de9", "#D55E00")
+
+finalDynamics2_long <- gather(finalDynamics2, plot, Population, F1:F2, factor_key=TRUE)
+
+finalDynamics2_long %>%
+  ggplot(aes(Parameter_New, Population, color=plot)) +
+  geom_line() +
+  geom_point(alpha=0.5, size=1) +
+  ggtitle('b)') +
+  labs(y="Final Fish Population", x = "Fish movement from patch 1 to patch 2", size = 2) +
+  theme_classic() +
+  theme(legend.position = "none", axis.title = element_text(size = 18)) +
+  scale_colour_manual(values = patchcolors, labels=c(expression('F'[1]), expression('F'[2])))
+
+# finalDynamics2_long %>%
+#   ggplot(aes(Parameter_New, Population, color=plot)) +
+#   geom_line() +
+#   geom_point(alpha=0.5, size=1) +
+#   ggtitle('b)') +
+#   labs(y="Final Population", x="m Value") +
+#   theme_classic() +
+#   theme(legend.title=element_blank()) +
+#   scale_colour_discrete(labels=c(expression('F'[1]), expression('F'[2])))
+
+
+```
+
+(ref:mExploregraphboth)  Both ms changing. Increasing both ms results in fishery crashes. Probably due to more fish entering F2 to be over-fished more?
+
+```{r mExploreGraphBoth, fig.cap = '(ref:mExploregraphboth) \\label{mExploreGraphBoth}', eval = FALSE }
+
+patchcolors <- c("#567de9", "#D55E00")
+
+finalDynamics3_long <- gather(finalDynamics3, plot, Population, F1:F2, factor_key=TRUE)
+
+finalDynamics3_long %>%
+  ggplot(aes(Parameter_New, Population, color=plot)) +
+  geom_line() +
+  geom_point(alpha=0.5, size=1) +
+  scale_color_manual(values = patchcolors) +
+  ggtitle('a)') +
+  labs(y="Final Fish Population", x="m Value") +
+  theme_classic() +  
+  theme(legend.position = "none")
+
+
+
+
+```
+
+# DISCUSSION
+
+Instead of just social norms controlling the dynamics of our model, we found that the movement of the resource species between patches (m) was a major driver of population sustainability or collapse (Figure \ref{mExploreGraph}). As we increased the movement of fish into the sustainable patch in the fishery scenario (Figure  \ref{mExploreGraph} a), populations in that respective patch also increased because humans in population 1 continued to fish sustainably. Further, as those in population 2 decreased fishing rates, this influenced population 1 to also decrease their number of fishers. As a result, population 1 maintained high fish stocks while population 2 had low stocks. On the contrary, as fish moved from the sustainable patch 1 to the unsustainable patch 2 (Figure  \ref{mExploreGraph} b), both fish populations collapsed as $m_2$ increased because fish movement away from patch 1 eventually grew to be too great for human population 1 to fish sustainably and human population 2 continued to over-fish in their own patch. When both patches are subject to the same conditions (Figure \ref{Movement} a), b), and c)), resource movement does not affect the dynamics at all. It is only when each patch is subject to different conditions, in the case of figure \ref{Movement} d), e), and f), where only the movement between patches is asymmetrical, does movement become extremely important in dynamics. This finding is especially relevant to co-managed fisheries, where different areas may be subject to different regulation, environmental conditions, or opinions about conservation. High migration has been shown to be an essential part of maximizing economic benefit from fishing in multi-patch models [@moellerEconomicallyOptimalMarine2015]. Because fish are generally migratory and therefore can be difficult to track, constraining fishing to one group of people is more challenging [@graftonSocialCapitalFisheries2005], especially for fish species that exhibit different movement patterns based on life stage, and requires more management coordination [@siddonsBordersBarriersChallenges2017].
+
+The social hierarchy parameter $\rho$ can also dictate whether or not patches will be harvested sustainably. Figure \ref{influenceAsym} exemplifies how, when increasing social susceptibility to one's respective patch (increasing the $d$ parameter), can result in booms and busts of resource availability. On the other hand, increasing social susceptibility to outside social influence (increasing the $\rho$ parameter) can actually result in more stable dynamics because human population 1 is exhibiting a "portfolio effect" of harvest opinion. In other words, population 1 is taking in opinions regarding harvest from different sources, which can dampen extreme reactions to harvest decisions and therefore reduce extreme changes in fishing pressure. Portfolio effects have been shown to be beneficial when fishers diversify the species they catch, which allows them to compensate for lost catch when one species experiences decline [@finkbeinerRoleDiversificationDynamic2015; @clineFisheriesPortfolioDiversification2017; @robinsonDiversificationInsulatesFisher2020]. The finding from our study demonstrates that using multiple sources of information regarding adequate fishing pressure from multiple connected fisheries can also mitigate the effects of resource population fluctuations on harvesting levels. However, our scenarios show that the portfolio effect is only effective when both patches are exhibiting sustainable harvest practices. In the case study, patch 1 was being fished sustainably and patch 2 was experiencing over-fishing, and also included social hierarchy by increasing $\rho_1$, or the social influence that human population 2 has on the human population in the first patch (table \ref{DefaultParamTable}). Despite human population 1's efforts to maintain fish stocks, the unsustainable practices of human population 2 drives the whole fishery to collapse.
+
+We then tested the effect of external social influence ($\rho$) on the case study model and how increasing social influence between human groups would influence the model's dynamics. Contrary to our previous findings, increasing $\rho$ did not result in higher fish populations (Figure \ref{rhoExploreGraph}). Fish populations crashed when $\rho$ passed a tipping point, showing that high levels of cooperation between groups resulted in the over-harvest of both populations of fish. At high levels of external social influence, sustainable fishing practices were not achieved because the only information being passed on to the other human population is the number of fishers as opposed to what sustainable fishing practices were used in order to achieve sustainable fishing yields. As a result, when one patch $i$ is over-fished and the other patch $j$ is fished sustainably, the group $i$ will continue to over-fish their own resources because the opposite patch $j$ is influencing this group to continue fishing through the high external social influence ($\rho$). Instead of modeling a cohesive system where communication fostered effective conservation, we created a scenario where each community raced to fish each patch as opposed to coming to common understanding of sustainable fishing practices, further highlighting that the content of the information being disseminated matters in successful conservation [@grayModelingIntegrationStakeholder2012]. Previous social-ecological research shows that social structures should be taken into consideration when the community manages a resource or else that community management is prone to fail [@graftonSocialCapitalFisheries2005; @newmanHomophilyAgencyCreating2007; @cinnerComanagementCoralReef2012; @bodinConservationSuccessFunction2014]. Unsuccessful co-management can occur because people who interact differently with the environment or within a society have to consider different trade-offs in conservation, and these trade-offs must be understood in order to institute sustainable practices [@cummingNewDirectionsUnderstanding2017; @baker-medardSocialscapeEcologyIntegrating2021]. The portfolio effect benefits harvested resources only if each group is participating in sustainable practices. 
+
+Further, because of the outside human influence term, $\rho_i$, people are not responding directly to their respective fishing patch, but also to the conservation opinion of the other group. The inclusion of the movement term from each patch overcame the non-linear components of the model because movement is a linear term in this model. Adding a spatial component to socio-ecological models can greatly change their dynamics and therefore how people are expected to act under certain environmental conditions. The dispersion of fish populations must be well understood in order to institute effective conservation practices because any decision made by one group of people to conserve resources may be rendered ineffective if this species is highly migratory and the other group of harvesters is using unsustainable conservation practices. Further, because of the outside influences from the other human patch, fishers are no longer responding directly to fish levels in their respective patch, $i$, but are also influenced by the proportion of fishers in the other patch, $j$. In a scenario where fish is abundant in one patch, this will also encourage fishing in the other patch because incentive to fish will increase from the outside influence parameter. Past research has exemplified how multi-patch models and the addition of spatial components change the dynamics of systems, especially in fisheries [@mchichDynamicsFishStock2000; @caiModelingAnalysisHarvesting2008; @moellerEconomicallyOptimalMarine2015; @augerIncreaseMaximumSustainable2022]. 
+
+The decision to include the external social influence term in our model within the injunctive social norms $X(1-X)$ implies that external influence can still change an opinion for or against conservation. However, an individual’s willingness to take up a new opinion is still dictated by the overall opinion of their own population exemplifies homophily. Homophily is a concept from sociology where humans tend to take information and the opinions from subgroups similar to them before listening to subgroups of different social standing [@brechwaldHomophilyDecadeAdvances2011]. Social network based conservation, like in our model, can replace ‘top-down’ regulation which can exclude stakeholders but has been shown to be susceptible to homophily [@newmanHomophilyAgencyCreating2007]. Conservation has been shown to be more effective when human populations are more cohesive and that those with subgroups experience more barriers to effective conservation [@bodinRoleSocialNetworks2009]. Solutions to a lack of cohesion could be to institute some form of liaison that serves as cross-group communicators [@guerreroAchievingCrossScaleCollaboration2015].
+
+Further research on the model used in this study could consider an open system, where fish diffusion does not necessarily have to pass between patches and could diffuse into non-fished areas. Further, extensions of this work could observe model dynamics with fish species with a long lifespan or fast reproduction rates. Also, stronger social ties have been shown to be more adaptable to environmental change [@graftonSocialCapitalFisheries2005], therefore further studies could evaluate the effect of climate change or extreme events on this social system  [@whiteExtremeEventsCoupled2023]. The specific way we chose to incorporate social hierarchy into the model could be changed. There are many ways to model social systems so another application of this study would be to compare its results to models that incorporate social hierarchy differently. Next, further work on parameterizing our model to a real-world system could help understand if our model is properly capturing the underlying dynamics of two-patch fishing systems with social hierarchy. Our model only incorporates public opinion, fishing rates, and financial gains from fisheries as aspects that could cause fishery failure. In practice, other issues such as non-compliance to fishing regulations, hyper-stability, and regulation lag time could all be additional factors that result in fishery collapse but are not incorporated in this model [@erismanIllusionPlentyHyperstability2011; @pinskyLaggedSocialecologicalResponses2012; @belhabibFisheriesCatchMisreporting2014]. Further, this study does not consider Allee effects in the fish populations, which may alter how spatial dynamics interacts with management practices [@whiteCatastrophesConnectivityAllee2021]. Finally, our model assumed that the uptake of opinions happens solely through social networks and weighing costs of conservation against the benefits. In reality, there may be more factors that influence one's harvesting decisions such as governing bodies or media consumption.
+
+*Funding* - This research was supported in part by NSF grant #1923707.
+
+*Data Availability* - All supplemental material and code for this project are available at https://github.com/swulfing/SocEco.
+
+*Competing interests* - None.
+
+\newpage
+
+**References**
+
+
